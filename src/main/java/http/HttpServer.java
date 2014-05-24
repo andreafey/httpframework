@@ -2,12 +2,16 @@ package http;
 
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.Socket;
 import java.net.ServerSocket;
+import java.util.Date;
 
 public class HttpServer {
 	
@@ -22,10 +26,14 @@ public class HttpServer {
 		try {
 			ServerSocket server = new ServerSocket(port);
 			while (true) {
+				System.out.println("listening for connection");
 				// blocks until request received
 				Socket connection = server.accept();
+				System.out.println("connected");
 				BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
 				OutputStream out = new BufferedOutputStream(connection.getOutputStream());
+				// this is only for character streams
+				// TODO add support for other file types
 				PrintStream pout = new PrintStream(out);
 				
 				String s = in.readLine();
@@ -37,8 +45,25 @@ public class HttpServer {
 				while (s != null && s.length() > 0) {
 					s = in.readLine();
 				}
-				// TODO print http headers
-				pout.println("hello");
+				
+				File page = new File("index.html");
+				if (!page.exists()) {
+					System.out.println("page does not exist");
+					sendHeader(pout, 404, "File Not Found");
+					pout.println("File Not Found");
+				}
+				else {
+					System.out.println("page exists");
+					sendHeader(pout, 200, "OK");
+					InputStream fin = new FileInputStream(page);
+					BufferedReader fread = new BufferedReader(new InputStreamReader(fin));
+					String line = fread.readLine();
+					while (line != null) {
+						pout.println(line);
+						line = fread.readLine();
+					}
+					fread.close();
+				}
 				out.flush();
 				connection.close();
 			}
@@ -46,6 +71,16 @@ public class HttpServer {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} 
+	}
+	
+	private static void sendHeader(PrintStream pout, int code, String message) {
+		pout.printf("HTTP/1.0 %1d %s\n", code, message);
+		if (code == 200) {
+			pout.println("Content-Type: text/html");
+			pout.println("Date: " + new Date());
+			pout.println("Server: HttpServer");
+		}
+		pout.println();
 	}
 	// TODO
 	public void stop() {}
