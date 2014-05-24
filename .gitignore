@@ -1,0 +1,35 @@
+.*
+!/.gitignore
+!/.travis.yml
+build/
+bin/
+dist/
+logs/
+tmp/
+*.log
+*.zip
+
+### Scala/Java ###
+*.class
+dist/*
+
+### Scala ###
+
+# sbt specific
+.cache/
+.history/
+.lib/
+target/
+lib_managed/
+src_managed/
+project/project
+project/target
+project/boot/
+project/plugins/project/
+
+# Scala-IDE specific
+.scala_dependencies
+.worksheet
+
+### Java ###
+*.jar
