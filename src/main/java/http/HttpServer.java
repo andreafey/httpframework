@@ -40,14 +40,16 @@ public class HttpServer {
 				String req = s;
 				if (req == null) 
 					continue;
+                String reqPath = req.substring(5, req.indexOf(' ', 5));
+                if (reqPath.length() == 0) { reqPath = "index.html"; }
 				// TODO see why this is necessary
 				// read the rest of data from the input stream, and throw it out
 				while (s != null && s.length() > 0) {
 					s = in.readLine();
 				}
 				
-				File page = new File("index.html");
-				if (!page.exists()) {
+				File page = new File(reqPath);
+				if (!page.isFile()) {
 					System.out.println("page does not exist");
 					sendHeader(pout, 404, "File Not Found");
 					pout.println("File Not Found");
