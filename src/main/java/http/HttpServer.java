@@ -13,8 +13,25 @@ import java.net.Socket;
 import java.net.ServerSocket;
 import java.util.Date;
 
+
+ 
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+ 
+
+import java.lang.reflect.AnnotatedElement;
+import java.lang.reflect.Method;
+
 public class HttpServer {
-	
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target(ElementType.METHOD)
+    @interface RequestMethod {
+        String path();
+    }
+
 	private int port;
 	
 	public HttpServer(int port) {
@@ -47,25 +64,50 @@ public class HttpServer {
 				while (s != null && s.length() > 0) {
 					s = in.readLine();
 				}
-				
-				File page = new File(reqPath);
-				if (!page.isFile()) {
-					System.out.println("page does not exist");
-					sendHeader(pout, 404, "File Not Found");
-					pout.println("File Not Found");
-				}
-				else {
-					System.out.println("page exists");
-					sendHeader(pout, 200, "OK");
-					InputStream fin = new FileInputStream(page);
-					BufferedReader fread = new BufferedReader(new InputStreamReader(fin));
-					String line = fread.readLine();
-					while (line != null) {
-						pout.println(line);
-						line = fread.readLine();
-					}
-					fread.close();
-				}
+
+                // first check if requested path is a special function
+                //AnnotatedElement.getAnnotationsByType(RequestMethod.class);
+
+                boolean specialFunc = false;
+
+                Class<HttpServer> obj = HttpServer.class;
+                for (Method method : obj.getDeclaredMethods()) {
+                    if (method.isAnnotationPresent(RequestMethod.class)) {
+                        RequestMethod rm = (RequestMethod)(method.getAnnotation(RequestMethod.class));
+                        if (rm.path().equals(reqPath)) {
+                            System.out.printf("invoking special method %s: %s\n", rm.path(), method);
+                            try {
+                                method.invoke(null, pout);
+                            } catch (Exception e) {
+                                System.out.println("ERROR\n");
+                                System.out.println(e);
+                            }
+                            specialFunc = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!specialFunc) {
+                    File page = new File(reqPath);
+                    if (!page.isFile()) {
+                        System.out.println("page does not exist");
+                        sendHeader(pout, 404, "File Not Found");
+                        pout.println("File Not Found");
+                    }
+                    else {
+                        System.out.println("page exists");
+                        sendHeader(pout, 200, "OK");
+                        InputStream fin = new FileInputStream(page);
+                        BufferedReader fread = new BufferedReader(new InputStreamReader(fin));
+                        String line = fread.readLine();
+                        while (line != null) {
+                            pout.println(line);
+                            line = fread.readLine();
+                        }
+                        fread.close();
+                    }
+                }
 				out.flush();
 				connection.close();
 			}
@@ -74,7 +116,14 @@ public class HttpServer {
 			e.printStackTrace();
 		} 
 	}
-	
+
+    @RequestMethod(path = "hello.html")
+	private static void helloworld(PrintStream pout) {
+        sendHeader(pout, 200, "OK");
+        pout.println("hello world!");
+    }
+
+
 	private static void sendHeader(PrintStream pout, int code, String message) {
 		pout.printf("HTTP/1.0 %1d %s\n", code, message);
 		if (code == 200) {
