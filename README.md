@@ -61,4 +61,24 @@ s.registerController(new MyController());
 s.run()
 ```
 
+At that point, a request for the URL
+
+```
+http://localhost:1234/one
+```
+
+would return the one-line response
+
+    Hi there, this is the one.
+    
+and a request for
+
+```
+http://localhost:1234/two/blue
+```
+
+would return the one-liner
+
+    Hi there, this is two, and thing = "blue"
+
 Note that request paramters (e.g. '?name=value&...') are not handled.
