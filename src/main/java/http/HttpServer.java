@@ -33,6 +33,57 @@ public class HttpServer {
         String path();
     }
 
+    private static class SpecialFunctionWithArgs {
+        private Method method;
+        private String[] args;
+        public Method method() { return method; }
+        public String[] args() { return args; }
+        public SpecialFunctionWithArgs(Method method, String[] args) {
+            this.method = method;
+            this.args = args;
+        }
+    }
+
+    private SpecialFunctionWithArgs specialFunctionWithArgs(String path) {
+        int i = path.length();
+        while (i >= 0) {
+            String a = path.substring(0,i);
+            String b = path.substring(i);
+            if (specialFunctions.containsKey(a)) {
+                if (b.length() > 0) {
+                    return new SpecialFunctionWithArgs(specialFunctions.get(a), b.substring(1).split("/"));
+                } else {
+                    return new SpecialFunctionWithArgs(specialFunctions.get(a) ,new String[] {});
+                }
+            }
+            i = path.lastIndexOf('/', i-1);
+        }
+        return null;
+    }
+
+
+
+    /*
+    private SpecialFunctionWithArgs specialFunctionWithArgs(String path) {
+        specialFunctionWithArgs(String path, new String[] {});
+    }
+
+    private SpecialFunctionWithArgs specialFunctionWithArgs(String path, String[] args) {
+        switch (path) {
+        case "": if (specialFunctions.containsKey(path)) {
+                return new SpecialFunctionWithArgs(specialFunctions.get(path), args);
+            } else {
+                return null;
+            }
+        default: if (specialFunctions.containsKey(path)) {
+                return new SpecialFunctionWithArgs(specialFunctions.get(path), args);
+            } else {
+                return specialFunctionWithArgs(???, String[] { ??? });
+            }
+        }
+    }
+*/
+
 	private int port;
 	
 	public HttpServer(int port) {
@@ -72,10 +123,30 @@ public class HttpServer {
 				while (s != null && s.length() > 0) {
 					s = in.readLine();
 				}
-
+                /*
                 if (specialFunctions.containsKey(reqPath)) {
                     try {
                         specialFunctions.get(reqPath).invoke(null, pout);
+                    } catch (Exception e) {
+                        System.out.println("ERROR\n");
+                        System.out.println(e);
+                    }
+                */
+
+                SpecialFunctionWithArgs sfwa = specialFunctionWithArgs(reqPath);
+                if (sfwa != null) {
+                    try {
+                        if (sfwa.method().getParameterTypes().length == sfwa.args().length+1) {
+                            Object[] oargs = new Object[sfwa.args().length+1];
+                            oargs[0] = pout;
+                            for (int i = 0; i < sfwa.args().length; ++i) {
+                                oargs[i+1] = sfwa.args()[i];
+                            }
+                            sfwa.method().invoke(null, oargs);
+                        } else {
+                            sendHeader(pout, 500, "Internal Server Error");
+                            pout.println("Invalid number of arguments");
+                        }
                     } catch (Exception e) {
                         System.out.println("ERROR\n");
                         System.out.println(e);
@@ -120,6 +191,12 @@ public class HttpServer {
 	private static void goodbyeworld(PrintStream pout) {
         sendHeader(pout, 200, "OK");
         pout.println("goodbye world!");
+    }
+
+    @RequestMethod(path = "sayhi")
+	private static void goodbyeworld(PrintStream pout, String who, String what) {
+        sendHeader(pout, 200, "OK");
+        pout.printf("hi %s, you are %s\n", who, what);
     }
 
 
