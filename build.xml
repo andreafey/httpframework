@@ -1,0 +1,23 @@
+<project name="httpserver" default="compile">
+
+  <property name="java.dir" location="src/main/java"/>
+  <property name="test.dir" location="src/test/java"/>
+  <property name="classes.dir" location="bin"/>
+
+  <target name="compile">
+    <mkdir dir="${classes.dir}"/>
+    <javac srcdir="${java.dir}" destdir="${classes.dir}"/>
+  </target>
+
+  <target name="run" depends="compile">
+    <java classname="http.HttpServer">
+      <classpath location="${classes.dir}"/>
+    </java>
+  </target>
+
+  <target name="clean">
+    <delete dir="${classes.dir}"/>
+  </target>
+
+
+</project>
