@@ -12,8 +12,7 @@ import java.io.PrintStream;
 import java.net.Socket;
 import java.net.ServerSocket;
 import java.util.Date;
-
-
+import java.util.HashMap;
  
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -26,6 +25,8 @@ import java.lang.reflect.Method;
 
 public class HttpServer {
 
+    HashMap<String,Method> specialFunctions = new HashMap<>();
+
     @Retention(RetentionPolicy.RUNTIME)
     @Target(ElementType.METHOD)
     @interface RequestMethod {
@@ -36,6 +37,13 @@ public class HttpServer {
 	
 	public HttpServer(int port) {
 		this.port = port;
+        Class<HttpServer> obj = HttpServer.class;
+        for (Method method : obj.getDeclaredMethods()) {
+            if (method.isAnnotationPresent(RequestMethod.class)) {
+                RequestMethod rm = (RequestMethod)(method.getAnnotation(RequestMethod.class));
+                specialFunctions.put(rm.path(), method);
+            }
+        }
 	}
 	// TODO
 	public void run() {
@@ -65,30 +73,14 @@ public class HttpServer {
 					s = in.readLine();
 				}
 
-                // first check if requested path is a special function
-                //AnnotatedElement.getAnnotationsByType(RequestMethod.class);
-
-                boolean specialFunc = false;
-
-                Class<HttpServer> obj = HttpServer.class;
-                for (Method method : obj.getDeclaredMethods()) {
-                    if (method.isAnnotationPresent(RequestMethod.class)) {
-                        RequestMethod rm = (RequestMethod)(method.getAnnotation(RequestMethod.class));
-                        if (rm.path().equals(reqPath)) {
-                            System.out.printf("invoking special method %s: %s\n", rm.path(), method);
-                            try {
-                                method.invoke(null, pout);
-                            } catch (Exception e) {
-                                System.out.println("ERROR\n");
-                                System.out.println(e);
-                            }
-                            specialFunc = true;
-                            break;
-                        }
+                if (specialFunctions.containsKey(reqPath)) {
+                    try {
+                        specialFunctions.get(reqPath).invoke(null, pout);
+                    } catch (Exception e) {
+                        System.out.println("ERROR\n");
+                        System.out.println(e);
                     }
-                }
-
-                if (!specialFunc) {
+                } else {
                     File page = new File(reqPath);
                     if (!page.isFile()) {
                         System.out.println("page does not exist");
@@ -121,6 +113,13 @@ public class HttpServer {
 	private static void helloworld(PrintStream pout) {
         sendHeader(pout, 200, "OK");
         pout.println("hello world!");
+    }
+
+
+    @RequestMethod(path = "goodbye.html")
+	private static void goodbyeworld(PrintStream pout) {
+        sendHeader(pout, 200, "OK");
+        pout.println("goodbye world!");
     }
 
 
