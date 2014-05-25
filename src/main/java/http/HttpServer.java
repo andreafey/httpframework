@@ -61,29 +61,6 @@ public class HttpServer {
         return null;
     }
 
-
-
-    /*
-    private SpecialFunctionWithArgs specialFunctionWithArgs(String path) {
-        specialFunctionWithArgs(String path, new String[] {});
-    }
-
-    private SpecialFunctionWithArgs specialFunctionWithArgs(String path, String[] args) {
-        switch (path) {
-        case "": if (specialFunctions.containsKey(path)) {
-                return new SpecialFunctionWithArgs(specialFunctions.get(path), args);
-            } else {
-                return null;
-            }
-        default: if (specialFunctions.containsKey(path)) {
-                return new SpecialFunctionWithArgs(specialFunctions.get(path), args);
-            } else {
-                return specialFunctionWithArgs(???, String[] { ??? });
-            }
-        }
-    }
-*/
-
 	private int port;
 	
 	public HttpServer(int port) {
@@ -96,9 +73,8 @@ public class HttpServer {
             }
         }
 	}
-	// TODO
+
 	public void run() {
-//		ServerSocket server = null;
 		try {
 			ServerSocket server = new ServerSocket(port);
 			while (true) {
@@ -123,15 +99,6 @@ public class HttpServer {
 				while (s != null && s.length() > 0) {
 					s = in.readLine();
 				}
-                /*
-                if (specialFunctions.containsKey(reqPath)) {
-                    try {
-                        specialFunctions.get(reqPath).invoke(null, pout);
-                    } catch (Exception e) {
-                        System.out.println("ERROR\n");
-                        System.out.println(e);
-                    }
-                */
 
                 SpecialFunctionWithArgs sfwa = specialFunctionWithArgs(reqPath);
                 if (sfwa != null) {
@@ -212,10 +179,6 @@ public class HttpServer {
 	// TODO
 	public void stop() {}
 	
-//	public static HttpServer createServer(int port) {
-//		
-//	}
-
 	public static void main(String[] args) {
 		HttpServer server = new HttpServer(1234);
 		server.run();
