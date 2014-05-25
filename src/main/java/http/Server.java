@@ -14,46 +14,62 @@ import java.net.ServerSocket;
 import java.util.Date;
 import java.util.HashMap;
  
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
- 
 
-import java.lang.reflect.AnnotatedElement;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-public class HttpServer {
+import example.ExampleController;
 
-    HashMap<String,Method> specialFunctions = new HashMap<>();
+public class Server {
 
-    @Retention(RetentionPolicy.RUNTIME)
-    @Target(ElementType.METHOD)
-    @interface RequestMethod {
-        String path();
+    HashMap<String,ControllerMethod> controllerMethods = new HashMap<>();
+
+    private static class ControllerMethod {
+    	private Object controller;
+    	private Method method;
+    	public ControllerMethod(Object controller, Method method) {
+    		this.controller = controller;
+    		this.method = method;
+    	}
+    	public void invoke(Object... args) {
+    		try {
+				method.invoke(controller, args);
+			} catch (IllegalAccessException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (IllegalArgumentException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (InvocationTargetException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+    	}
+		public Method method() {
+			return method;
+		}
     }
-
-    private static class SpecialFunctionWithArgs {
-        private Method method;
+    private static class ControllerMethodWithArgs {
+        private ControllerMethod controllerMethod;
         private String[] args;
-        public Method method() { return method; }
+        public ControllerMethod controllerMethod() { return controllerMethod; }
         public String[] args() { return args; }
-        public SpecialFunctionWithArgs(Method method, String[] args) {
-            this.method = method;
+        public ControllerMethodWithArgs(ControllerMethod controllerMethod, String[] args) {
+            this.controllerMethod = controllerMethod;
             this.args = args;
         }
     }
 
-    private SpecialFunctionWithArgs specialFunctionWithArgs(String path) {
+    private ControllerMethodWithArgs controllerMethodWithArgs(String path) {
         int i = path.length();
         while (i >= 0) {
             String a = path.substring(0,i);
             String b = path.substring(i);
-            if (specialFunctions.containsKey(a)) {
+            if (controllerMethods.containsKey(a)) {
                 if (b.length() > 0) {
-                    return new SpecialFunctionWithArgs(specialFunctions.get(a), b.substring(1).split("/"));
+                    return new ControllerMethodWithArgs(controllerMethods.get(a), b.substring(1).split("/"));
                 } else {
-                    return new SpecialFunctionWithArgs(specialFunctions.get(a) ,new String[] {});
+                    return new ControllerMethodWithArgs(controllerMethods.get(a) ,new String[] {});
                 }
             }
             i = path.lastIndexOf('/', i-1);
@@ -63,20 +79,23 @@ public class HttpServer {
 
 	private int port;
 	
-	public HttpServer(int port) {
+	public Server(int port) {
 		this.port = port;
-        Class<HttpServer> obj = HttpServer.class;
-        for (Method method : obj.getDeclaredMethods()) {
-            if (method.isAnnotationPresent(RequestMethod.class)) {
-                RequestMethod rm = (RequestMethod)(method.getAnnotation(RequestMethod.class));
-                specialFunctions.put(rm.path(), method);
-            }
-        }
 	}
 
-	public void run() {
+	public void registerController(Object controller) {
+        for (Method method : controller.getClass().getDeclaredMethods()) {
+            if (method.isAnnotationPresent(RequestMethod.class)) {
+                RequestMethod rm = (RequestMethod)(method.getAnnotation(RequestMethod.class));
+                controllerMethods.put(rm.value(), new ControllerMethod(controller, method));
+            }
+        }
+		
+	}
+ 	public void run() {
+ 		ServerSocket server = null;
 		try {
-			ServerSocket server = new ServerSocket(port);
+			server = new ServerSocket(port);
 			while (true) {
 				System.out.println("listening for connection");
 				// blocks until request received
@@ -100,16 +119,16 @@ public class HttpServer {
 					s = in.readLine();
 				}
 
-                SpecialFunctionWithArgs sfwa = specialFunctionWithArgs(reqPath);
+                ControllerMethodWithArgs sfwa = controllerMethodWithArgs(reqPath);
                 if (sfwa != null) {
                     try {
-                        if (sfwa.method().getParameterTypes().length == sfwa.args().length+1) {
+                        if (sfwa.controllerMethod().method().getParameterTypes().length == sfwa.args().length+1) {
                             Object[] oargs = new Object[sfwa.args().length+1];
                             oargs[0] = pout;
                             for (int i = 0; i < sfwa.args().length; ++i) {
                                 oargs[i+1] = sfwa.args()[i];
                             }
-                            sfwa.method().invoke(null, oargs);
+                            sfwa.controllerMethod().invoke(oargs);
                         } else {
                             sendHeader(pout, 500, "Internal Server Error");
                             pout.println("Invalid number of arguments");
@@ -144,30 +163,18 @@ public class HttpServer {
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-		} 
+		} finally {
+			if (server != null) {
+				try {
+					server.close();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
 	}
-
-    @RequestMethod(path = "hello.html")
-	private static void helloworld(PrintStream pout) {
-        sendHeader(pout, 200, "OK");
-        pout.println("hello world!");
-    }
-
-
-    @RequestMethod(path = "goodbye.html")
-	private static void goodbyeworld(PrintStream pout) {
-        sendHeader(pout, 200, "OK");
-        pout.println("goodbye world!");
-    }
-
-    @RequestMethod(path = "sayhi")
-	private static void goodbyeworld(PrintStream pout, String who, String what) {
-        sendHeader(pout, 200, "OK");
-        pout.printf("hi %s, you are %s\n", who, what);
-    }
-
-
-	private static void sendHeader(PrintStream pout, int code, String message) {
+	public static void sendHeader(PrintStream pout, int code, String message) {
 		pout.printf("HTTP/1.0 %1d %s\n", code, message);
 		if (code == 200) {
 			pout.println("Content-Type: text/html");
@@ -180,7 +187,8 @@ public class HttpServer {
 	public void stop() {}
 	
 	public static void main(String[] args) {
-		HttpServer server = new HttpServer(1234);
+		Server server = new Server(1234);
+		server.registerController(new ExampleController());
 		server.run();
 	}
 
